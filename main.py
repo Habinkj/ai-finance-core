@@ -16,9 +16,14 @@ warnings.filterwarnings('ignore')
 load_dotenv() 
 api_key = os.getenv("GEMINI_API_KEY") 
 
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-2.5-flash')
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-2.5-flash')
+else:
+    print("⚠️ WARNING: GEMINI_API_KEY not found in environment.")
+    model = None
 # --------------------------------
+
 app = FastAPI()
 
 print("🧠 Booting Hybrid AI Core: Training Scikit-Learn Models...")
@@ -46,7 +51,7 @@ print("✅ ML Models Ready.")
 
 class CategorySpend(BaseModel):
     category: str
-    totalAmount: int
+    amount: float
 
 # 🔥 FIX 4: Upgraded the Pydantic model to explicitly accept the clusterData list
 class AIAnalysis(BaseModel):
@@ -62,9 +67,10 @@ async def analyze_behavior(spend_data: List[CategorySpend]):
     if not spend_data:
         return AIAnalysis(riskLevel="UNKNOWN", behaviorPattern="NO DATA", flaggedTransactions=[], humanAdvice="No data available.", clusterData=[])
 
-    total_spent = sum(item.totalAmount for item in spend_data)
-    max_category_spend = max(item.totalAmount for item in spend_data)
-    max_category_name = next(item.category for item in spend_data if item.totalAmount == max_category_spend)
+    # 🔥 INDENTATION FIXED 🔥
+    total_spent = sum(item.amount for item in spend_data)
+    max_category_spend = max(item.amount for item in spend_data)
+    max_category_name = next(item.category for item in spend_data if item.amount == max_category_spend)
     
     # We estimate the user's transaction frequency based on how many items were sent
     tx_count_current = len(spend_data)
@@ -98,8 +104,11 @@ async def analyze_behavior(spend_data: List[CategorySpend]):
     """
     
     try:
-        llm_response = model.generate_content(prompt)
-        advice = llm_response.text.strip()
+        if model:
+            llm_response = model.generate_content(prompt)
+            advice = llm_response.text.strip()
+        else:
+            advice = "Our AI is currently offline, but keep an eye on your budget!"
     except Exception as e:
         print(f"❌ LLM CRASH REPORT: {e}")  
         advice = "We analyzed your spending, but our advisory system is currently resting. Keep an eye on your tech budget!"
@@ -134,4 +143,4 @@ async def analyze_behavior(spend_data: List[CategorySpend]):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=10000)
